@@ -5,7 +5,7 @@ from twitchAPI.types import AuthScope
 import logging
 import time
 
-# channel id arrays - im pretty sure there is a way to get this programatically through the api providing just the channel name, do this later.
+# channel id arrays - im pretty sure there is a way to get this programatically through the api providing just the channel name, do this later. At the very lest store them in a file...
 channel_ids = {
     "xqcow": 71092938,
     "ahrelevant": 189362827,
