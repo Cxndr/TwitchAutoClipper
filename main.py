@@ -8,6 +8,7 @@ import time
 import csv
 from datetime import datetime
 
+
 # channel id arrays - im pretty sure there is a way to get this programatically through the api providing just the channel name, do this later. At the very lest store them in a file....
 channel_ids = {
     "xqcow": 71092938,
@@ -65,58 +66,12 @@ chat_count_trap_time = 20
 chat_increase_list_length = 50
 lockout_timer = 20
 
-
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
 secret = "w3rnpwvpbiiw9lb1co497mm6goqla8"
 user_token = "x7jxalqa8wahy06q846xt4b6iwcley"
 users = {} # shared user list minimizes the number of requests
-try:
-    channel_count = int(input("how many channels do you want to track?"))
-except Exception:
-    channel_count = 1
-    pass
-target_channels = []
-target_channels_id = []
-for c in range(0,channel_count):
-    try:
-        target_channels.append(input("enter name for channel " + str(c) + "\n"))
-    except Exception:
-        target_channels.append("esl_csgo")
-        pass
-    try:
-        target_channels_id.append(channel_ids[target_channels[c]])
-    except:
-        target_channels_ids.append(input("enter channel id for " + target_channels[c] + "\n"))
-        pass
-
-print("channels: " + str(target_channels))
-print("channels_id: " + str(target_channels_id))
-
-'''
-try:
-    target_channels = input("enter channel name (as it appears in their url): \n")
-except Exception:
-    target_channel = "esl_csgo"
-    pass
-try:
-    target_channel_id = channel_ids[target_channel]
-except Exception:
-    # target_channel_id = 71092938  # cindr:55294253
-    target_channel_id = input("enter the channel id for " + target_channel + ": \n")
-    pass
-'''
-
 twitch = Twitch(app_id, secret)
-chat_count = 1  # we start at 1 to avoid 'divide by zero' problems on chat_count_past
-chat_count_past = 1
-chat_count_trap = []
-chat_count_increase = 0
-chat_count_increase_frac = 0
-chat_increase_list = []
-chat_increase_avg = 0
-lockout = 0
-
 
 # TwitchAPI package authentication
 target_scope = [AuthScope.CLIPS_EDIT]
@@ -143,110 +98,168 @@ def setup_logger(name, log_file, level=logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(handler)
-
     return logger
-
 chat_logger = setup_logger('chatlog', 'chat.log')
 clip_logger = setup_logger('clipslog', 'clips.log')
 
 
-# tmi callback (runs everytime messages are sent to the twitch chat)
-def callback(data):
-    # data looks like: ['display_name', 'event_time', 'user_id', 'login', 'message', 'event_raw']
-    global chat_count
-    print( "    " + str(data) )
-    chat_logger.info( data['display_name'] + ": " + data["message"])
-    chat_count += 1
+
+### NEW IDEA - Setup channels as classes with each channel being an individual object, then just list objects and run them through the list.
+# we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
+class Channel:
+    def __init__(self, _name, _id):
+        self.name = _name
+        self.id = _id
+        self.chat_count = 1  # we start at 1 to avoid 'divide by zero' problems on chat_count_past
+        self.chat_count_past = 1
+        self.chat_count_trap = []
+        self.chat_count_increase = 0
+        self.chat_count_increase_frac = 0
+        self.chat_increase_list = []
+        self.chat_increase_avg = 0
+        self.lockout = 0
+
+    # tmi callback (runs everytime messages are sent to the twitch chat)
+    def callback(self, data):
+        # data looks like: ['display_name', 'event_time', 'user_id', 'login', 'message', 'event_raw']
+        global chat_count
+        print("    " + str(data))
+        chat_logger.info(data['display_name'] + ": " + data["message"])
+        chat_count += 1
+
+    # setup tmi (twitch messaging interface) - returns chat messages with their data.
+    def setup_tmi(self):
+        tmi = PyWitchTMI(
+            channel=_name,
+            token=user_token,
+            callback=callback,  # Optional
+            users=users,  # Optional, but strongly recomended
+            verbose=True,  # Optional
+        )
+        tmi.start()
+        # tmi.send(' ~ connected ~ ') # send message in chat example
 
 
-# trigger making clip
-def get_clip():
+    # trigger making clip
+    def get_clip(self):
+        global twitch
 
-    global twitch
+        # print some stuff so we see the clip happen when watching terminal
+        print("CREATING CLIP!!!!!!!!!!!!!!!!!")
+        print("CLIPPPPPPPP")
+        print("CLIPPPPPPPP")
 
-    # print some stuff so we see the clip happen when watching terminal
-    print("CREATING CLIP!!!!!!!!!!!!!!!!!")
-    print("CLIPPPPPPPP")
-    print("CLIPPPPPPPP")
-    print("CLIPPPPPPPP")
-    print("CLIPPPPPPPP")
-    print("CLIPPPPPPPP")
-    print("CLIPPPPPPPP")
-    print("CLIPPPPPPPP")
+        # create clip
+        clip = twitch.create_clip(target_channel_id, False)
 
-    # create clip
-    clip = twitch.create_clip(target_channel_id,False)
+        # print clip data to terminal
+        print(clip)
+        print(clip['data'][0]['edit_url'])
 
-    # print clip data to terminal
-    print(clip)
-    print(clip['data'][0]['edit_url'])
+        # write to log
+        clip_logger.info(target_channel + " | " + clip["data"][0]["edit_url"] + " ~ (inc: " + str(
+            chat_count_increase) + ", avg: " + str(round(chat_increase_avg, 2)) + " diff:" + str(
+            round(chat_count_increase / chat_increase_avg, 2)) + ")")
 
-    # write to log
-    clip_logger.info( target_channel + " | " + clip["data"][0]["edit_url"] + " ~ (inc: " + str(chat_count_increase) + ", avg: " + str(round(chat_increase_avg,2)) + " diff:" + str(round(chat_count_increase/chat_increase_avg,2)) + ")" )
-
-    # write to csv
-    clip_row = [target_channel, clip["data"][0]["edit_url"], str(chat_count_increase), str(round(chat_increase_avg,2)), str(round(chat_count_increase/chat_increase_avg,2)), datetime.now() ]
-    clips_write.writerow(clip_row)
-
-# setup tmi (class that returns chat messages)
-tmi = PyWitchTMI(
-    channel = target_channel,
-    token = user_token,
-    callback = callback, # Optional
-    users = users,       # Optional, but strongly recomended
-    verbose = True,      # Optional
-)
-tmi.start()
-#tmi.send(' ~ connected ~ ') # send message in chat example
+        # write to csv
+        clip_row = [target_channel, clip["data"][0]["edit_url"], str(chat_count_increase),
+                    str(round(chat_increase_avg, 2)), str(round(chat_count_increase / chat_increase_avg, 2)),
+                    datetime.now()]
+        clips_write.writerow(clip_row)
 
 
-# chat count loop
-while True:
 
+'''
+try:
+    channel_count = int(input("how many channels do you want to track?"))
+except Exception:
+    channel_count = 1
+    pass
+target_channels = []
+target_channels_id = []
+for c in range(0,channel_count):
     try:
-        # store current chat count into trap list (position 0)
-        chat_count_trap.insert(0,chat_count)
+        target_channels.append(input("enter name for channel " + str(c) + "\n"))
+    except Exception:
+        target_channels.append("esl_csgo")
+        pass
+    try:
+        target_channels_id.append(channel_ids[target_channels[c]])
+    except:
+        target_channels_ids.append(input("enter channel id for " + target_channels[c] + "\n"))
+        pass
 
-        # destroy last trap if full
-        if len(chat_count_trap) >= chat_count_trap_length:
-            chat_count_trap.pop()
+print("channels: " + str(target_channels))
+print("channels_id: " + str(target_channels_id))
+'''
 
-        # set past chat value based on trap_time
-        if len(chat_count_trap) > chat_count_trap_time:
-            chat_count_past = chat_count_trap[chat_count_trap_time-1]
-        else: chat_count_past = 1
+'''
+try:
+    target_channels = input("enter channel name (as it appears in their url): \n")
+except Exception:
+    target_channel = "esl_csgo"
+    pass
+try:
+    target_channel_id = channel_ids[target_channel]
+except Exception:
+    # target_channel_id = 71092938  # cindr:55294253
+    target_channel_id = input("enter the channel id for " + target_channel + ": \n")
+    pass
+'''
 
-        # set count increase since past count and turn into percentage/decimal
-        chat_count_increase = chat_count - chat_count_past
-        if chat_count_increase > 0:
-            chat_count_increase_frac = chat_count_increase / chat_count_past
-        else: chat_count_increase_frac = 0
 
-        # add count increase to avg list, remove if above max length
-        if chat_count_increase > 0:
-            chat_increase_list.insert(0, chat_count_increase)
-        if len(chat_increase_list) >= chat_increase_list_length:
-            chat_increase_list.pop()
 
-        # calculate average increase
-        if len(chat_increase_list) > 0:
-            chat_increase_avg = sum(chat_increase_list) / len(chat_increase_list)
-        print( "\n current:" + str(chat_count) + " past:" + str(chat_count_past) + " increase:" + str(chat_count_increase) + " inc_frac:" + str(round(chat_count_increase_frac,2)) + " avg_inc:" + str(round(chat_increase_avg,2)) + "\n" )
 
-        # if increase is x bigger than avg increase then trigger clip
-        if chat_count_increase > (clip_threshold * chat_increase_avg) and len(chat_count_trap) > (chat_count_trap_length*0.1) and lockout == 0:
-            lockout = lockout_timer
-            get_clip()
+# run program
+def run_clipper():
 
-        # move lockout timer
-        if lockout > 0:
-            lockout -= 1
+    # chat count loop
+    while True:
 
-        # Wait 1 sec
-        time.sleep(1)
+        try:
+            # store current chat count into trap list (position 0)
+            chat_count_trap.insert(0,chat_count)
 
-    except (KeyboardInterrupt, SystemExit) as e:
-        cleanup_chatloop()
+            # destroy last trap if full
+            if len(chat_count_trap) >= chat_count_trap_length:
+                chat_count_trap.pop()
 
-# run forever (for pywitch tmi) - not nessecary when checking ticker in loop
-#run_forever()
+            # set past chat value based on trap_time
+            if len(chat_count_trap) > chat_count_trap_time:
+                chat_count_past = chat_count_trap[chat_count_trap_time-1]
+            else: chat_count_past = 1
+
+            # set count increase since past count and turn into percentage/decimal
+            chat_count_increase = chat_count - chat_count_past
+            if chat_count_increase > 0:
+                chat_count_increase_frac = chat_count_increase / chat_count_past
+            else: chat_count_increase_frac = 0
+
+            # add count increase to avg list, remove if above max length
+            if chat_count_increase > 0:
+                chat_increase_list.insert(0, chat_count_increase)
+            if len(chat_increase_list) >= chat_increase_list_length:
+                chat_increase_list.pop()
+
+            # calculate average increase
+            if len(chat_increase_list) > 0:
+                chat_increase_avg = sum(chat_increase_list) / len(chat_increase_list)
+            print( "\n current:" + str(chat_count) + " past:" + str(chat_count_past) + " increase:" + str(chat_count_increase) + " inc_frac:" + str(round(chat_count_increase_frac,2)) + " avg_inc:" + str(round(chat_increase_avg,2)) + "\n" )
+
+            # if increase is x bigger than avg increase then trigger clip
+            if chat_count_increase > (clip_threshold * chat_increase_avg) and len(chat_count_trap) > (chat_count_trap_length*0.1) and lockout == 0:
+                lockout = lockout_timer
+                get_clip()
+
+            # move lockout timer
+            if lockout > 0:
+                lockout -= 1
+
+            # Wait 1 sec
+            time.sleep(1)
+
+        except (KeyboardInterrupt, SystemExit) as e:
+            cleanup_chatloop()
+
+    # run forever (for pywitch tmi) - not nessecary when checking ticker in loop
+    #run_forever()
