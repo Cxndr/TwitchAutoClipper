@@ -112,7 +112,9 @@ class Channel:
     def __init__(self, _channel_name):
         self.channel_name = _channel_name
         self.id = "offline" # init here as offline so we can catch, gets set in setup_info()
-        self.setup_info()
+        self.id = twitch.get_users(logins=[_channel_name])
+        # print(self.id)
+        #self.setup_info()
         self.chat_count = 1  # we start at 1 to avoid 'divide by zero' problems on chat_count_past
         self.chat_count_past = 1
         self.chat_count_trap = []
@@ -302,8 +304,6 @@ def run_clipper():
         for i in range(len(target_channels)):
 
             t = target_channels[i]
-            # t.setup_tmi()
-
             try:
 
                 # store current chat count into trap list (position 0)
@@ -371,3 +371,5 @@ def run_clipper():
     #run_forever()
 
 run_clipper()
+
+
