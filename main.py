@@ -3,6 +3,7 @@ from pywitch import PyWitchStreamInfo
 from twitchAPI.twitch import Twitch
 from twitchAPI.oauth import UserAuthenticator
 from twitchAPI.types import AuthScope
+from twitchAPI.types import TwitchAPIException
 import logging
 import atexit
 import time
@@ -62,10 +63,10 @@ channel_ids = {
 
 
 # settings
-clip_threshold = 1.8  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
-chat_count_trap_length = 1000
+clip_threshold = 1.4  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
+chat_count_trap_length = 500 # default 1000, using lower for fast testing
 chat_count_trap_time = 20
-chat_increase_list_length = 50
+chat_increase_list_length = 10
 lockout_timer = 20
 
 # variable setup
@@ -171,7 +172,7 @@ class Channel:
         # tmi.send(' ~ connected ~ ') # send message in chat example
 
 
-    # trigger making clip
+    # make clip
     def get_clip(self):
         global twitch
 
@@ -181,7 +182,14 @@ class Channel:
         print("CLIPPPPPPPP")
 
         # create clip
-        clip = twitch.create_clip(self.id, False)
+        try:
+            clip = twitch.create_clip(self.id, False)
+        except TwitchAPIException as error:
+            clip_logger.info(self.channel_name + " | " + "CLIP FAILED: " + str(error) + " ~ (inc: " + str(
+                self.chat_count_increase) + ", avg: " + str(
+                round(self.chat_increase_avg, 2)) + " diff:" + str(
+                round(self.chat_count_increase / self.chat_increase_avg, 2)) + ")")
+            return
 
         # print clip data to terminal
         print(clip)
@@ -201,9 +209,11 @@ class Channel:
 
 # setup channels
 target_channels = []
+
+target_channels.append(Channel("ahrelevant"))
+'''
 target_channels.append(Channel("destiny"))
 target_channels.append(Channel("asmongold"))
-target_channels.append(Channel("ahrelevant"))
 target_channels.append(Channel("xqcow"))
 target_channels.append(Channel("knut"))
 target_channels.append(Channel("jonzherka"))
@@ -246,7 +256,7 @@ target_channels.append(Channel("remthebathboi"))
 target_channels.append(Channel("lonerbox"))
 target_channels.append(Channel("infraredshow"))
 target_channels.append(Channel("anavoir"))
-
+'''
 
 
 
@@ -349,13 +359,7 @@ def run_clipper():
                 # if increase is x bigger than avg increase then trigger clip
                 if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) and len(t.chat_count_trap) > (chat_count_trap_length*0.1) and t.id != "offline" and t.lockout == 0 :
                     t.lockout = lockout_timer
-                    try: t.get_clip()
-                    except (TwitchAPIException) as error:
-                        clip_logger.info(self.channel_name + " | " + "CLIP FAILED: " + error + " ~ (inc: " + str(
-                            self.chat_count_increase) + ", avg: " + str(
-                            round(self.chat_increase_avg, 2)) + " diff:" + str(
-                            round(self.chat_count_increase / self.chat_increase_avg, 2)) + ")")
-
+                    t.get_clip()
 
                 # move lockout timer
                 if t.lockout > 0:
@@ -371,5 +375,4 @@ def run_clipper():
     #run_forever()
 
 run_clipper()
-
 
