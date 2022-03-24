@@ -12,59 +12,9 @@ import requests
 from datetime import datetime
 
 
-# channel id arrays - im pretty sure there is a way to get this programatically through the api providing just the channel name, do this later. At the very lest store them in a file....
-channel_ids = {
-    "xqcow": 71092938,
-    "ahrelevant": 189362827,
-    "destiny": 18074328,
-    "asmongold": 26261471,
-    "lec": 124422593,
-    "jokerdtv": 48082917,
-    "dylanburnstv": 468777657,
-    "dancantstream": 92189556,
-    "mrgirlreturns": 648955095,
-    "stardust": 178851824,
-    "primecayes": 522815466,
-    "daskrubking": 125488902,
-    "mindwavestv": 104832740,
-    "mrmouton": 45686481,
-    "dunkstream": 40397064,
-    "imreallyimportant": 43701021,
-    "heem": 464207300,
-    "jadeisaboss": 65346556,
-    "gappyv": 24261684,
-    "realdancody": 680342560,
-    "criticallythinkingveteran": 559203104,
-    "codemiko": 500128827,
-    "melina": 409624608,
-    "pisco95": 87659021,
-    "ragepope": 453444909,
-    "moderndatdebate": 455406802,
-    "erisann": 22734935,
-    "chaeiry": 618636970,
-    "sondsol": 57374878,
-    "eristocracytv": 88527017,
-    "hasanabi": 207813352,
-    "chudlogic": 473514006,
-    "rose_wrist": 433864363,
-    "rileygraceroshong": 554423691,
-    "lycangtv": 68798125,
-    "hanzofharkir": 539698749,
-    "jahmillionaire": 26229743,
-    "anavoir": 457863917,
-    "infraredshow": 643119348,
-    "kyootbot": 161737008,
-    "jonzherka": 407881598,
-    "remthebathboi": 82986547,
-    "esl_csgo": 31239503,
-
-    "cindr": 55294253
-}
-
-
 # settings
-clip_threshold = 1.4  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
-chat_count_trap_length = 500 # default 1000, using lower for fast testing
+clip_threshold = 0.4  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
+chat_count_trap_length = 20 # default 1000, using lower for fast testing
 chat_count_trap_time = 20
 chat_increase_list_length = 10
 lockout_timer = 20
@@ -92,7 +42,7 @@ atexit.register(cleanup_chatloop)
 clips_csv = open("clips.csv", "a", encoding="UTF8", newline="")
 clips_write = csv.writer(clips_csv)
 
-# setup loggers
+# setup general loggers - channel specific ones setup in channel class.
 formatter = logging.Formatter('%(asctime)s - %(message)s')
 def setup_logger(name, log_file, level=logging.INFO):
     """To setup as many loggers as you want"""
@@ -104,6 +54,15 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 chat_logger = setup_logger('chatlog', 'chat.log')
 clip_logger = setup_logger('clipslog', 'clips.log')
+main_logger = setup_logger('mainlog', 'main.log')
+
+class ProgramError(Exception):
+
+    def _init_(self, message):
+        print(message)
+        main_logger.info(message)
+
+    pass
 
 ### NEW IDEA - Setup channels as classes with each channel being an individual object, then just list objects and run them through the list.
 # we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
@@ -111,9 +70,20 @@ class Channel:
 
 
     def __init__(self, _channel_name):
+        self.channel_info = twitch.get_users(logins=[_channel_name])
+        try:
+            self.id = self.channel_info['data'][0]['id']
+        except(IndexError) as error:
+            error_message = "Error adding channel [" + _channel_name + "], no channel id data recieved, is the channel banned or the name typed incorrectly? - " + str(error)
+            print(error_message)
+            del self
+            raise ProgramError(error_message)
+        print(_channel_name)
         self.channel_name = _channel_name
         self.id = "offline" # init here as offline so we can catch, gets set in setup_info()
-        self.id = twitch.get_users(logins=[_channel_name])
+
+        print(self.channel_info)
+
         # print(self.id)
         #self.setup_info()
         self.chat_count = 1  # we start at 1 to avoid 'divide by zero' problems on chat_count_past
@@ -125,6 +95,7 @@ class Channel:
         self.chat_increase_list = []
         self.chat_increase_avg = 0
         self.lockout = 0
+        self.channel_chat_logger = setup_logger('channel_chatlog', 'channel_logs/' + _channel_name + '_chat.log')
 
 
     # chat info callback - get info from stream (same as running GET https://api.twitch.tv/helix/users?login=<login name>&id=<user ID> api call)
@@ -135,6 +106,8 @@ class Channel:
 
 
     # setup channel info - returns channel info dictionary (data) via callback above.
+        # IS THIS STILL NESSESARY? We are using twitch.get_users to retrive channel info as needed.
+        # May be needed to check if a channel is still online or offline - could we again just check online/offline status with a twitch.___ api call????
     def setup_info(self):
         global user_token
         global users
@@ -154,6 +127,7 @@ class Channel:
         # data looks like: ['display_name', 'event_time', 'user_id', 'login', 'message', 'event_raw']
         print("    " + str(data))
         chat_logger.info(data['display_name'] + ": " + data["message"])
+        self.channel_chat_logger.info("[" + data['display_name'] + "] " + data["message"])
         self.chat_count += 1
 
 
@@ -174,6 +148,7 @@ class Channel:
 
     # make clip
     def get_clip(self):
+
         global twitch
 
         # print some stuff so we see the clip happen when watching terminal
@@ -185,10 +160,11 @@ class Channel:
         try:
             clip = twitch.create_clip(self.id, False)
         except TwitchAPIException as error:
-            clip_logger.info(self.channel_name + " | " + "CLIP FAILED: " + str(error) + " ~ (inc: " + str(
+            clip_logger.info(self.channel_name + " | " + "[CLIP CREATE FAILED] Twitch Api Error: " + str(error) + " ~ (inc: " + str(
                 self.chat_count_increase) + ", avg: " + str(
                 round(self.chat_increase_avg, 2)) + " diff:" + str(
                 round(self.chat_count_increase / self.chat_increase_avg, 2)) + ")")
+            print( "Twitch API Error: " + str(error) )
             return
 
         # print clip data to terminal
@@ -210,8 +186,28 @@ class Channel:
 # setup channels
 target_channels = []
 
-target_channels.append(Channel("ahrelevant"))
+def load_channels():
+    with open('target_channels.txt', 'r') as file_object:
+        file_contents = file_object.readlines()
+        for line in file_contents:
+            channel_name = line[:-1] # remove line break which is the last character of the string
+            target_channels.append(Channel(channel_name))
+
+def add_channel(*args):
+    for c in range(len(args)):
+        target_channels.append(Channel(args[c]))
+        with open('target_channels.txt', 'a+') as file_object:
+            file_object.seek(0) # go to start of file
+            data = file_object.read(100)
+            if len(data) > 0: # if file is empty write new line
+                file_object.write("\n")
+            file_object.write(args[c])
+
+load_channels()
+print(target_channels)
+
 '''
+target_channels.append(Channel("ahrelevant"))
 target_channels.append(Channel("destiny"))
 target_channels.append(Channel("asmongold"))
 target_channels.append(Channel("xqcow"))
@@ -255,10 +251,7 @@ target_channels.append(Channel("hanzofharkir"))
 target_channels.append(Channel("remthebathboi"))
 target_channels.append(Channel("lonerbox"))
 target_channels.append(Channel("infraredshow"))
-target_channels.append(Channel("anavoir"))
 '''
-
-
 
 '''
 try:
