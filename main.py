@@ -56,13 +56,6 @@ chat_logger = setup_logger('chatlog', 'chat.log')
 clip_logger = setup_logger('clipslog', 'clips.log')
 main_logger = setup_logger('mainlog', 'main.log')
 
-class ProgramError(Exception):
-
-    def _init_(self, message):
-        print(message)
-        main_logger.info(message)
-
-    pass
 
 ### NEW IDEA - Setup channels as classes with each channel being an individual object, then just list objects and run them through the list.
 # we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
@@ -70,19 +63,11 @@ class Channel:
 
 
     def __init__(self, _channel_name):
+
         self.channel_info = twitch.get_users(logins=[_channel_name])
-        try:
-            self.id = self.channel_info['data'][0]['id']
-        except(IndexError) as error:
-            error_message = "Error adding channel [" + _channel_name + "], no channel id data recieved, is the channel banned or the name typed incorrectly? - " + str(error)
-            print(error_message)
-            del self
-            raise ProgramError(error_message)
-        print(_channel_name)
         self.channel_name = _channel_name
         self.id = "offline" # init here as offline so we can catch, gets set in setup_info()
-
-        print(self.channel_info)
+        self.id = self.channel_info['data'][0]['id']
 
         # print(self.id)
         #self.setup_info()
@@ -143,7 +128,7 @@ class Channel:
             verbose=True,  # Optional
         )
         tmi.start()
-        # tmi.send(' ~ connected ~ ') # send message in chat example
+        # tmi.send(' OOOO ') # send message in chat example
 
 
     # make clip
@@ -156,16 +141,20 @@ class Channel:
         print("CLIPPPPPPPP")
         print("CLIPPPPPPPP")
 
+        # return if channel is offline
+
+
         # create clip
         try:
             clip = twitch.create_clip(self.id, False)
         except TwitchAPIException as error:
-            clip_logger.info(self.channel_name + " | " + "[CLIP CREATE FAILED] Twitch Api Error: " + str(error) + " ~ (inc: " + str(
+            clip_logger.info(self.channel_name + " | " + "[CLIP CREATE FAILED]: " + str(error) + " ~ (inc: " + str(
                 self.chat_count_increase) + ", avg: " + str(
                 round(self.chat_increase_avg, 2)) + " diff:" + str(
                 round(self.chat_count_increase / self.chat_increase_avg, 2)) + ")")
-            print( "Twitch API Error: " + str(error) )
+            print( "Error: " + str(error) )
             return
+
 
         # print clip data to terminal
         print(clip)
@@ -190,12 +179,23 @@ def load_channels():
     with open('target_channels.txt', 'r') as file_object:
         file_contents = file_object.readlines()
         for line in file_contents:
-            channel_name = line[:-1] # remove line break which is the last character of the string
-            target_channels.append(Channel(channel_name))
+            channel_name = line.strip()
+            if line.strip() and not channel_name.startswith('#'): # "if line.strip()" checks for blank lines! #pythonic pepeW
+                #channel_name = line.rstrip() # remove line break which is the last character of the string
+                channel_info = twitch.get_users(logins=[channel_name])
+                print(channel_info)
+                if channel_info['data']: # check if channel returns a data array for channel info
+                    target_channels.append(Channel(channel_name))
+                else:
+                    channel_error = "Error adding channel [" + channel_name + "], no channel id data recieved, is the channel banned or the name typed incorrectly?"
+                    print(channel_error)
+                    main_logger.info(channel_error)
 
 def add_channel(*args):
     for c in range(len(args)):
-        target_channels.append(Channel(args[c]))
+        channel_info = twitch.get_users(logins=[c])
+        if channel_info['data']: # check if channel returns a data array for channel info
+            target_channels.append(Channel(args[c]))
         with open('target_channels.txt', 'a+') as file_object:
             file_object.seek(0) # go to start of file
             data = file_object.read(100)
@@ -205,91 +205,6 @@ def add_channel(*args):
 
 load_channels()
 print(target_channels)
-
-'''
-target_channels.append(Channel("ahrelevant"))
-target_channels.append(Channel("destiny"))
-target_channels.append(Channel("asmongold"))
-target_channels.append(Channel("xqcow"))
-target_channels.append(Channel("knut"))
-target_channels.append(Channel("jonzherka"))
-target_channels.append(Channel("cowsep"))
-target_channels.append(Channel("kyootbot"))
-target_channels.append(Channel("hasanabi"))
-target_channels.append(Channel("rose_wrist"))
-target_channels.append(Channel("payo"))
-target_channels.append(Channel("echo_esports"))
-target_channels.append(Channel("stardust"))
-target_channels.append(Channel("wickedsupreme"))
-target_channels.append(Channel("primecayes"))
-target_channels.append(Channel("davidpakman"))
-target_channels.append(Channel("lumirue"))
-target_channels.append(Channel("mindwavestv"))
-target_channels.append(Channel("booksmarts"))
-target_channels.append(Channel("mrmouton"))
-target_channels.append(Channel("dunkstream"))
-target_channels.append(Channel("devinnash"))
-target_channels.append(Channel("imreallyimportant"))
-target_channels.append(Channel("jadeisaboss"))
-target_channels.append(Channel("livagar"))
-target_channels.append(Channel("gappyv"))
-target_channels.append(Channel("denims"))
-target_channels.append(Channel("katarana_"))
-target_channels.append(Channel("realdancody"))
-target_channels.append(Channel("criticallythinkingveteran"))
-target_channels.append(Channel("melina"))
-target_channels.append(Channel("adrianahlee"))
-target_channels.append(Channel("pisco95"))
-target_channels.append(Channel("ragepope"))
-target_channels.append(Channel("thesillyserious"))
-target_channels.append(Channel("moderndaydebate"))
-target_channels.append(Channel("erisann"))
-target_channels.append(Channel("dancantstream"))
-target_channels.append(Channel("chaeiry"))
-target_channels.append(Channel("eristocracytv"))
-target_channels.append(Channel("hanzofharkir"))
-target_channels.append(Channel("remthebathboi"))
-target_channels.append(Channel("lonerbox"))
-target_channels.append(Channel("infraredshow"))
-'''
-
-'''
-try:
-    channel_count = int(input("how many channels do you want to track?"))
-except Exception:
-    channel_count = 1
-    pass
-target_channels = []
-target_channels_id = []
-for c in range(0,channel_count):
-    try:
-        target_channels.append(input("enter name for channel " + str(c) + "\n"))
-    except Exception:
-        target_channels.append("esl_csgo")
-        pass
-    try:
-        target_channels_id.append(channel_ids[target_channels[c]])
-    except:
-        target_channels_ids.append(input("enter channel id for " + target_channels[c] + "\n"))
-        pass
-
-print("channels: " + str(target_channels))
-print("channels_id: " + str(target_channels_id))
-'''
-
-'''
-try:
-    target_channels = input("enter channel name (as it appears in their url): \n")
-except Exception:
-    target_channel = "esl_csgo"
-    pass
-try:
-    target_channel_id = channel_ids[target_channel]
-except Exception:
-    # target_channel_id = 71092938  # cindr:55294253
-    target_channel_id = input("enter the channel id for " + target_channel + ": \n")
-    pass
-'''
 
 
 # run program
