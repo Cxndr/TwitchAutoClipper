@@ -111,9 +111,10 @@ class Channel:
     def tmi_callback(self, data):
         # data looks like: ['display_name', 'event_time', 'user_id', 'login', 'message', 'event_raw']
         print("    " + str(data))
-        chat_logger.info(data['display_name'] + ": " + data["message"])
-        self.channel_chat_logger.info("[" + data['display_name'] + "] " + data["message"])
         self.chat_count += 1
+        chat_logger.info( "chat_count: " + str(self.chat_count) + "[" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
+        self.channel_chat_logger.info( "chat_count: " + str(self.chat_count) + "[" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
+
 
 
     # setup tmi (twitch messaging interface) - returns chat messages with their data via callback above.
