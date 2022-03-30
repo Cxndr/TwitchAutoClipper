@@ -11,9 +11,8 @@ import csv
 import requests
 from datetime import datetime
 
-
 # settings
-clip_threshold = 0.4  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
+clip_threshold = 1.7  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
 chat_count_trap_length = 20 # default 1000, using lower for fast testing
 chat_count_trap_time = 20
 chat_increase_list_length = 10
@@ -61,13 +60,14 @@ main_logger = setup_logger('mainlog', 'main.log')
 # we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
 class Channel:
 
-
     def __init__(self, _channel_name):
 
-        self.channel_info = twitch.get_users(logins=[_channel_name])
         self.channel_name = _channel_name
-        self.id = "offline" # init here as offline so we can catch, gets set in setup_info()
+        self.channel_info = twitch.get_users(logins=[self.channel_name])
         self.id = self.channel_info['data'][0]['id']
+        # self.broadcast_info = twitch.get_channel_information(broadcaster_id=[self.id])
+        self.stream_info = twitch.get_streams(user_id=[self.id])
+        print(self.stream_info)
 
         # print(self.id)
         #self.setup_info()
@@ -82,13 +82,11 @@ class Channel:
         self.lockout = 0
         self.channel_chat_logger = setup_logger('channel_chatlog', 'channel_logs/' + _channel_name + '_chat.log')
 
-
     # chat info callback - get info from stream (same as running GET https://api.twitch.tv/helix/users?login=<login name>&id=<user ID> api call)
     def info_callback(self, data):
         print("\n -- setting channel info for " + self.channel_name + ": ")
         print(data)
         self.id = data["user_id"]
-
 
     # setup channel info - returns channel info dictionary (data) via callback above.
         # IS THIS STILL NESSESARY? We are using twitch.get_users to retrive channel info as needed.
@@ -96,7 +94,7 @@ class Channel:
     def setup_info(self):
         global user_token
         global users
-        streaminfo = PyWitchStreamInfo(
+        target_info = PyWitchStreamInfo(
             channel = self.channel_name,
             token = user_token,
             callback = self.info_callback,
@@ -104,18 +102,15 @@ class Channel:
             interval = 1,
             verbose = True
         )
-        streaminfo.start()
-
+        target_info.start()
 
     # tmi callback - runs everytime messages are sent to the twitch chat
     def tmi_callback(self, data):
         # data looks like: ['display_name', 'event_time', 'user_id', 'login', 'message', 'event_raw']
         print("    " + str(data))
         self.chat_count += 1
-        chat_logger.info( "chat_count: " + str(self.chat_count) + "[" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
+        chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
         self.channel_chat_logger.info( "chat_count: " + str(self.chat_count) + "[" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
-
-
 
     # setup tmi (twitch messaging interface) - returns chat messages with their data via callback above.
     def setup_tmi(self):
@@ -131,9 +126,21 @@ class Channel:
         tmi.start()
         # tmi.send(' OOOO ') # send message in chat example
 
-
     # make clip
     def get_clip(self):
+
+        clip_trigger_info = \
+            " ~ (inc:" + str(self.chat_count_increase) \
+            + ", avg:" + str(round(self.chat_increase_avg, 2)) \
+            + ", diff:" + str(round(self.chat_count_increase / self.chat_increase_avg, 2)) \
+            + ")"
+
+        # return if channel is offline
+        if not self.stream_info['data']:
+            error_clip_offline = self.channel_name + " | [CLIP CREATE FAILED]: Channel Offline" + clip_trigger_info
+            clip_logger.info(error_clip_offline)
+            print( "Error: " + str(error_clip_offline) )
+            return
 
         global twitch
 
@@ -142,29 +149,21 @@ class Channel:
         print("CLIPPPPPPPP")
         print("CLIPPPPPPPP")
 
-        # return if channel is offline
-
-
         # create clip
         try:
             clip = twitch.create_clip(self.id, False)
+            if 'error' in clip.keys():
+                raise TwitchAPIException(clip)
         except TwitchAPIException as error:
-            clip_logger.info(self.channel_name + " | " + "[CLIP CREATE FAILED]: " + str(error) + " ~ (inc: " + str(
-                self.chat_count_increase) + ", avg: " + str(
-                round(self.chat_increase_avg, 2)) + " diff:" + str(
-                round(self.chat_count_increase / self.chat_increase_avg, 2)) + ")")
+            clip_logger.info( self.channel_name + " | [CLIP CREATE FAILED]: " + str(error) + clip_trigger_info )
             print( "Error: " + str(error) )
             return
-
-
-        # print clip data to terminal
-        print(clip)
-        print(clip['data'][0]['edit_url'])
+        else: # print feedback to terminal
+            print(clip)
+            print(clip['data'][0]['edit_url'])
 
         # write to log
-        clip_logger.info(self.channel_name + " | " + clip["data"][0]["edit_url"] + " ~ (inc: " + str(
-            self.chat_count_increase) + ", avg: " + str(round(self.chat_increase_avg, 2)) + " diff:" + str(
-            round(self.chat_count_increase / self.chat_increase_avg, 2)) + ")")
+        clip_logger.info( self.channel_name + " | " + clip["data"][0]["edit_url"] + clip_trigger_info )
 
         # write to csv
         clip_row = [self.channel_name, clip["data"][0]["edit_url"], str(self.chat_count_increase),
@@ -207,7 +206,6 @@ def add_channel(*args):
 load_channels()
 print(target_channels)
 
-
 # run program
 def run_clipper():
 
@@ -215,7 +213,6 @@ def run_clipper():
     for i in range(len(target_channels)):
         t = target_channels[i]
         t.setup_tmi()
-
 
     # chat count loop
     while True:
@@ -284,4 +281,3 @@ def run_clipper():
     #run_forever()
 
 run_clipper()
-
