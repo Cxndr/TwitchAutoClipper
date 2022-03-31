@@ -13,10 +13,12 @@ from datetime import datetime
 
 # settings
 clip_threshold = 1.7  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
-chat_count_trap_length = 20 # default 1000, using lower for fast testing
+chat_count_trap_length = 100 # default 1000, using lower for fast testing
 chat_count_trap_time = 20
 chat_increase_list_length = 10
 lockout_timer = 20
+settings_track_offline_channels = True
+tick_length = 0.2
 
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
@@ -55,7 +57,6 @@ chat_logger = setup_logger('chatlog', 'chat.log')
 clip_logger = setup_logger('clipslog', 'clips.log')
 main_logger = setup_logger('mainlog', 'main.log')
 
-
 ### NEW IDEA - Setup channels as classes with each channel being an individual object, then just list objects and run them through the list.
 # we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
 class Channel:
@@ -69,8 +70,6 @@ class Channel:
         self.stream_info = twitch.get_streams(user_id=[self.id])
         print(self.stream_info)
 
-        # print(self.id)
-        #self.setup_info()
         self.chat_count = 1  # we start at 1 to avoid 'divide by zero' problems on chat_count_past
         self.chat_count_past = 1
         self.chat_count_trap = []
@@ -80,7 +79,13 @@ class Channel:
         self.chat_increase_list = []
         self.chat_increase_avg = 0
         self.lockout = 0
-        self.channel_chat_logger = setup_logger('channel_chatlog', 'channel_logs/' + _channel_name + '_chat.log')
+        self.channel_chat_logger = setup_logger(self.channel_name + '_chatlog', 'channel_logs/' + self.channel_name + '_chat.log')
+
+    def channel_is_offline(self):
+        if not self.stream_info['data']:
+            return True
+        else:
+            return False
 
     # chat info callback - get info from stream (same as running GET https://api.twitch.tv/helix/users?login=<login name>&id=<user ID> api call)
     def info_callback(self, data):
@@ -110,7 +115,8 @@ class Channel:
         print("    " + str(data))
         self.chat_count += 1
         chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
-        self.channel_chat_logger.info( "chat_count: " + str(self.chat_count) + "[" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
+        self.channel_chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
+
 
     # setup tmi (twitch messaging interface) - returns chat messages with their data via callback above.
     def setup_tmi(self):
@@ -135,8 +141,8 @@ class Channel:
             + ", diff:" + str(round(self.chat_count_increase / self.chat_increase_avg, 2)) \
             + ")"
 
-        # return if channel is offline
-        if not self.stream_info['data']:
+        # dont make clip (return) if channel is offline
+        if self.channel_is_offline():
             error_clip_offline = self.channel_name + " | [CLIP CREATE FAILED]: Channel Offline" + clip_trigger_info
             clip_logger.info(error_clip_offline)
             print( "Error: " + str(error_clip_offline) )
@@ -220,6 +226,13 @@ def run_clipper():
         for i in range(len(target_channels)):
 
             t = target_channels[i]
+
+            # dont process offline channels
+            if settings_track_offline_channels:
+                if t.channel_is_offline():
+                    print(" [" + t.channel_name + "] - Channel Offline")
+                    continue
+
             try:
 
                 # store current chat count into trap list (position 0)
@@ -263,7 +276,7 @@ def run_clipper():
                        + " trap_len:" + str(len(t.chat_count_trap)) + "\n" )
 
                 # if increase is x bigger than avg increase then trigger clip
-                if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) and len(t.chat_count_trap) > (chat_count_trap_length*0.1) and t.id != "offline" and t.lockout == 0 :
+                if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) and len(t.chat_count_trap) > (chat_count_trap_length*0.1) and t.lockout == 0 :
                     t.lockout = lockout_timer
                     t.get_clip()
 
@@ -271,8 +284,8 @@ def run_clipper():
                 if t.lockout > 0:
                     t.lockout -= 1
 
-                # wait 1 sec
-                time.sleep(1)
+                # wait some time to gather enough data, will want to change this as number of target channels goes up.
+                time.sleep(tick_length)
 
             except (KeyboardInterrupt, SystemExit) as e:
                 cleanup_chatloop()
