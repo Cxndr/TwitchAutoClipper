@@ -18,6 +18,7 @@ chat_count_trap_time = 20
 chat_increase_list_length = 10
 lockout_timer = 20
 settings_track_offline_channels = True
+tick_length = 0.2
 
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
@@ -283,8 +284,8 @@ def run_clipper():
                 if t.lockout > 0:
                     t.lockout -= 1
 
-                # wait 1 sec
-                time.sleep(1)
+                # wait some time to gather enough data, will want to change this as number of target channels goes up.
+                time.sleep(tick_length)
 
             except (KeyboardInterrupt, SystemExit) as e:
                 cleanup_chatloop()
