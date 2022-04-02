@@ -69,6 +69,8 @@ class Channel:
 
     def __init__(self, _channel_name):
 
+        self.category = "DEFAULT"
+
         self.channel_name = _channel_name
         self.channel_info = twitch.get_users(logins=[self.channel_name])
         self.id = self.channel_info['data'][0]['id']
@@ -192,12 +194,33 @@ class Channel:
 target_channels = []
 
 def load_channels():
+
+    _category = "DEFAULT"
+
     with open('target_channels.txt', 'r') as file_object:
         file_contents = file_object.readlines()
         for line in file_contents:
-            channel_name = line.strip()
-            if line.strip() and not channel_name.startswith('#'): # "if line.strip()" checks for blank lines! #pythonic pepeW
-                #channel_name = line.rstrip() # remove line break which is the last character of the string
+
+            # store category else store channel name
+            if line.strip().startswith("//"):
+                _category = channel_name[2:].strip()
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
+            else:
+                channel_name = line.strip()
+
+            # create channel object
+            if channel_name and not channel_name.startswith("#"): # use "#" for commenting out
                 channel_info = twitch.get_users(logins=[channel_name])
                 print(channel_info)
                 if channel_info['data']: # check if channel returns a data array for channel info
