@@ -9,8 +9,9 @@ melina
 ahrelevant
 dariusirl
 bigbossboze
-gappyv
+#gappyv
 stardust
+sondsol
 chudlogic
 imreallyimportant
 lonerbox
@@ -27,12 +28,20 @@ hasanabi
 xqcow
 pokelawls
 sodapoppin
+codemiko
+itmejp
+mizkif
 
 asmongold
 payo
 xaryu
+venruki
+
+
 
 cowsep
+imaqtpie
+
 
 lec
 lcs

@@ -12,26 +12,32 @@ import requests
 from datetime import datetime
 
 # settings
-clip_threshold = 1.7  # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
-chat_count_trap_length = 100 # default 1000, using lower for fast testing
-chat_count_trap_time = 20
-chat_increase_list_length = 10
-lockout_timer = 20
+clip_threshold = 1.9                # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
+chat_count_trap_length = 1000       # how many tmi calls back do we store to calculate the average chat speed. default 1000, using lower for fast testing
+chat_count_trap_time = 20           # how many tmi calls back in time do we calculate increase from.
+chat_increase_list_length = 100     # how many past chat count increases to store for calculating average increase.
+lockout_timer = 20                  # after creating a clip, how long before another clip can be created on that channel. some value above 0 is needed to not create multiple clips from same chat event.
+tick_length = 0.2                   # how long in seconds should we wait between calculation ticks - needs to be above 0 or tmi data packets will be too small to calculate increases.
+min_chat_increase = 12              # the minimum amount of chat messages more than the average we need to trigger a clip. - this is here to account for tracking low view count streams. where an increase of 2 avg messages per tick may go 7/8 messages per tick through natural conversation or bot messages. this is a large increase compared to the average but not nessecarily a clipppable moment.
+clip_delay = 5                      # how long to wait to execute clip from moment of detection. (to allow the clip to include things after the chat spike)
+
 settings_track_offline_channels = True
-tick_length = 0.2
+settings_log_chat_channels = True
+settings_log_chat_main = True
+
 
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
-secret = "w3rnpwvpbiiw9lb1co497mm6goqla8"
+app_secret = "w3rnpwvpbiiw9lb1co497mm6goqla8"
 user_token = "x7jxalqa8wahy06q846xt4b6iwcley"
 users = {} # shared user list minimizes the number of requests
-twitch = Twitch(app_id, secret)
+twitch = Twitch(app_id, app_secret)
 
-# TwitchAPI package authentication
+# set TwitchAPI "User" Authentication - we need this for: clip creation.
 target_scope = [AuthScope.CLIPS_EDIT]
 auth = UserAuthenticator(twitch, target_scope, force_verify=False)
 token, refresh_token = auth.authenticate() # this will open your default browser and prompt you with the twitch verification website
-twitch.set_user_authentication(token, target_scope, refresh_token) # add User authentication
+twitch.set_user_authentication(token, target_scope, refresh_token)
 
 # clean up
 def cleanup_chatloop():
@@ -114,8 +120,10 @@ class Channel:
         # data looks like: ['display_name', 'event_time', 'user_id', 'login', 'message', 'event_raw']
         print("    " + str(data))
         self.chat_count += 1
-        chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
-        self.channel_chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
+        if settings_log_chat_main:
+            chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
+        if settings_log_chat_channels:
+            self.channel_chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
 
 
     # setup tmi (twitch messaging interface) - returns chat messages with their data via callback above.
@@ -134,6 +142,8 @@ class Channel:
 
     # make clip
     def get_clip(self):
+
+        time.sleep(clip_delay)
 
         clip_trigger_info = \
             " ~ (inc:" + str(self.chat_count_increase) \
@@ -242,7 +252,7 @@ def run_clipper():
                 if len(t.chat_count_trap) >= chat_count_trap_length:
                     t.chat_count_trap.pop()
 
-                # set past chat value based on trap_time
+                # set past chat value based on trap_time ???
                 if len(t.chat_count_trap) > chat_count_trap_time:
                     t.chat_count_past = t.chat_count_trap[chat_count_trap_time-1]
                 else: t.chat_count_past = 1
@@ -276,7 +286,10 @@ def run_clipper():
                        + " trap_len:" + str(len(t.chat_count_trap)) + "\n" )
 
                 # if increase is x bigger than avg increase then trigger clip
-                if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) and len(t.chat_count_trap) > (chat_count_trap_length*0.1) and t.lockout == 0 :
+                if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) \
+                and t.chat_count_increase >= min_chat_increase \
+                and len(t.chat_count_trap) > (chat_count_trap_length*0.1) \
+                and t.lockout == 0:
                     t.lockout = lockout_timer
                     t.get_clip()
 
