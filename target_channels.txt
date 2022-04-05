@@ -1,7 +1,15 @@
+// META
+xqcow
+pokelawls
+codemiko
+itmejp
+mizkif
+g4tv
+
+// POLITICS
+destiny
 dylanburnstv
 primecayes
-
-destiny
 dancantstream
 lycangtv
 mrmouton
@@ -19,31 +27,21 @@ rose_wrist
 notsoErudite
 anavoir
 criticallythinkingveteran
-
-day9tv
-g4tv
-
 hasanabi
 
-xqcow
-pokelawls
-sodapoppin
-codemiko
-itmejp
-mizkif
-
+// WOW
 asmongold
 payo
 xaryu
 venruki
+sodapoppin
 
-
-
-cowsep
-imaqtpie
-
-
+// LOL
 lec
 lcs
 lck
 lpl
+cowsep
+imaqtpie
+
+

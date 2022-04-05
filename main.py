@@ -10,6 +10,7 @@ import time
 import csv
 import requests
 from datetime import datetime
+import os.path
 
 # settings
 clip_threshold = 1.9                # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
@@ -24,7 +25,6 @@ clip_delay = 5                      # how long to wait to execute clip from mome
 settings_track_offline_channels = True
 settings_log_chat_channels = True
 settings_log_chat_main = True
-
 
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
@@ -46,8 +46,19 @@ def cleanup_chatloop():
 atexit.register(cleanup_chatloop)
 
 # open clips csv
-clips_csv = open("clips.csv", "a", encoding="UTF8", newline="")
+clips_csv = open('clips.csv', 'a', encoding='UTF8', newline="")
 clips_write = csv.writer(clips_csv)
+if not os.path.getsize('clips.csv'):
+    clips_csv_headers = [
+        "Channel Name",
+        "Category",
+        "URL",
+        "Increase",
+        "Avg",
+        "Difference",
+        "Time"
+    ]
+    clips_write.writerow(clips_csv_headers)
 
 # setup general loggers - channel specific ones setup in channel class.
 formatter = logging.Formatter('%(asctime)s - %(message)s')
@@ -67,11 +78,10 @@ main_logger = setup_logger('mainlog', 'main.log')
 # we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
 class Channel:
 
-    def __init__(self, _channel_name):
-
-        self.category = "DEFAULT"
+    def __init__(self, _channel_name, _category):
 
         self.channel_name = _channel_name
+        self.category = _category
         self.channel_info = twitch.get_users(logins=[self.channel_name])
         self.id = self.channel_info['data'][0]['id']
         # self.broadcast_info = twitch.get_channel_information(broadcaster_id=[self.id])
@@ -184,10 +194,17 @@ class Channel:
         clip_logger.info( self.channel_name + " | " + clip["data"][0]["edit_url"] + clip_trigger_info )
 
         # write to csv
-        clip_row = [self.channel_name, clip["data"][0]["edit_url"], str(self.chat_count_increase),
-                    str(round(self.chat_increase_avg, 2)), str(round(self.chat_count_increase / self.chat_increase_avg, 2)),
-                    datetime.now()]
+        clip_row = [
+            self.channel_name,
+            self.category,
+            clip["data"][0]["edit_url"],
+            str(self.chat_count_increase),
+            str(round(self.chat_increase_avg, 2)),
+            str(round(self.chat_count_increase / self.chat_increase_avg, 2)),
+            datetime.now()
+        ]
         clips_write.writerow(clip_row)
+
 
 
 # setup channels
@@ -195,36 +212,27 @@ target_channels = []
 
 def load_channels():
 
-    _category = "DEFAULT"
+    category = "DEFAULT"
 
     with open('target_channels.txt', 'r') as file_object:
         file_contents = file_object.readlines()
         for line in file_contents:
 
+            line = line.strip()
+
             # store category else store channel name
-            if line.strip().startswith("//"):
-                _category = channel_name[2:].strip()
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-                print(" CATEGORYYYYYYYYYYYYYY CHANGE: " + _category)
-            else:
-                channel_name = line.strip()
+            if line.startswith("//"):
+                category = line[2:]
+                print(" CATEGORY CHANGE: " + category)
+                continue
 
             # create channel object
-            if channel_name and not channel_name.startswith("#"): # use "#" for commenting out
+            if line and not line.startswith("#"): # use "#" for commenting out
+                channel_name = line
                 channel_info = twitch.get_users(logins=[channel_name])
                 print(channel_info)
                 if channel_info['data']: # check if channel returns a data array for channel info
-                    target_channels.append(Channel(channel_name))
+                    target_channels.append(Channel(channel_name, category))
                 else:
                     channel_error = "Error adding channel [" + channel_name + "], no channel id data recieved, is the channel banned or the name typed incorrectly?"
                     print(channel_error)
