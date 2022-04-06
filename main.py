@@ -19,8 +19,8 @@ chat_count_trap_time = 20           # how many tmi calls back in time do we calc
 chat_increase_list_length = 100     # how many past chat count increases to store for calculating average increase.
 lockout_timer = 20                  # after creating a clip, how long before another clip can be created on that channel. some value above 0 is needed to not create multiple clips from same chat event.
 tick_length = 0.2                   # how long in seconds should we wait between calculation ticks - needs to be above 0 or tmi data packets will be too small to calculate increases.
-min_chat_increase = 12              # the minimum amount of chat messages more than the average we need to trigger a clip. - this is here to account for tracking low view count streams. where an increase of 2 avg messages per tick may go 7/8 messages per tick through natural conversation or bot messages. this is a large increase compared to the average but not nessecarily a clipppable moment.
-clip_delay = 5                      # how long to wait to execute clip from moment of detection. (to allow the clip to include things after the chat spike)
+min_chat_increase = 12              # the minimum amount of chat messages more than the average we need to trigger a clip. - this is here to account for tracking low view count streams. where an increase of 2 avg messages per tick may jump to 7/8 messages per tick through natural conversation or chatbot messages. this is a large increase compared to the average but not nessecarily a clippable moment.
+clip_delay = 5                      # how long in seconds to wait to execute clip from moment of detection. (to allow the clip to include things after the chat spike)
 
 settings_track_offline_channels = True
 settings_log_chat_channels = True

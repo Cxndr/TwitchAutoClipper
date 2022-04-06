@@ -1,0 +1,6 @@
+what do we do if the internet connection breaks?
+    - currently we keep recieving data but all streams go to no chat messages which fills up the trap with empty chats, when the internet comes back on it will trigger lots of clips because the averages are 0.
+
+ Make logs print backwards.
+    - so the most recent log goes to the top of the file.
+    - when writing the log, write it to line 1.
