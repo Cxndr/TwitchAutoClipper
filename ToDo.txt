@@ -2,9 +2,14 @@
     - currently we keep recieving data but all streams go to no chat messages which fills up the trap with empty chats.
     when the internet comes back on it will trigger lots of clips because the averages are 0.
 
-# TODO: MAKE LOGS REVERSED ORDER.
-    - so the most recent log goes to the top of the file.
-    - when writing the log, write it to line 1.
+# TODO: WHAT DO WE DO IF OUR LOG FILES OR CLIPS.CSV BECOMES TOO BIG TO OPEN?
+    - if the program is designed to run 24/7 then can we implement some level of automatic cleanup?
+        - Consider reducing the amount of logging we are doing by default. Add a specific mode to log full chat.
+            - chat.log is mostly unnessecary (except for some debugging scenarios), as we store individual chats seperately.
+            - clips.log is duplicating a lot of the role of clip.csv. We could move important debugging data to clips.csv
+            or merge into main.log?
+        - Can we auto delete log lines after a certain length of time or file size?
+            - control this from settings or a debug mode?
 
 # TODO: CLEAN UP CLIPPING CRITERIA PROCESS.
     - Remove unnecessary variables that dont get used
@@ -16,15 +21,30 @@
         - is it as simple as making change locally and git push-ing? or do we need to make changes to the repo?
         - i think pycharm will manage this for us, but should learn how to accomplish manually.
 
-# TODO: Why does imreallyimports channel spam clips?
+# TODO: Why does imreallyimportant channel spam random clips even with very low chat activity?
+    - problem seems to be worse the more channels we are tracking - because it extends the tick length?
+    - Next see if it gets better at faster tick rate? or worse at very slow tick rate.
+
 
 
 
 *** DONE *** (clean up when items go into commit)
 
-TO#DO: INVESTIGATE POKELAWLS OFFLINE CLIPPING
+# TO#DO: INVESTIGATE POKELAWLS OFFLINE CLIPPING
     - on 6th April 3am-6am we made a tonne of clips on Pokelawls channel whilst they were offline and chat was barely moving
     - why was chat reaching the Inc threshold? did this line up with what is in pokelawls chatlog,
         - if not then why was inc high enough to trigger clips?
 
 Investigated pokelawls offline clipping. Pokelawls had a relatively active offline chat this night.
+
+***
+
+# TO#DO: MAKE LOGS REVERSED ORDER.
+    - so the most recent log goes to the top of the file.
+    - when writing the log, write it to line 1.
+
+It's very inneficient to write to the start of the file for every log. Computationally we'd have to navigate to start of file every time.
+OS's are designed to make appends (to end of file) very fast and efficient. With the amount of logging we are doing this would be a bad idea.
+Better to just reverse the order when opening the file and make sure we aren't making huge file logs.
+
+***
