@@ -25,6 +25,10 @@ clip_delay = 5                      # how long in seconds to wait to execute cli
 settings_track_offline_channels = True
 settings_log_chat_channels = True
 settings_log_chat_main = True
+settings_logging_mode = 0 # 0 = Full Logging, 1 = Standard Logging, TODO: (do we need 3 = Lightweight logging too?)
+# Do we need this setting? we are already using above log settings to turn individual elements on/off.
+# Could set this up as a "profile" system to store settings for indidivudal log settings, or just ignore and allow user
+# to edit individual log settings.
 
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
@@ -33,7 +37,7 @@ user_token = "x7jxalqa8wahy06q846xt4b6iwcley"
 users = {} # shared user list minimizes the number of requests
 twitch = Twitch(app_id, app_secret)
 
-# set TwitchAPI "User" Authentication - we need this for: clip creation.
+# setup TwitchAPI "User" Authentication - we need this for: clip creation.
 target_scope = [AuthScope.CLIPS_EDIT]
 auth = UserAuthenticator(twitch, target_scope, force_verify=False)
 token, refresh_token = auth.authenticate() # this will open your default browser and prompt you with the twitch verification website
@@ -60,7 +64,7 @@ if not os.path.getsize('clips.csv'):
     ]
     clips_write.writerow(clips_csv_headers)
 
-# setup general loggers - channel specific ones setup in channel class.
+# setup loggers - channel specific loggers setup inside channel class.
 formatter = logging.Formatter('%(asctime)s - %(message)s')
 def setup_logger(name, log_file, level=logging.INFO):
     """To setup as many loggers as you want"""
