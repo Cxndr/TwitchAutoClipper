@@ -28,7 +28,7 @@ settings_log_chat_main = True
 settings_logging_mode = 0 # 0 = Full Logging, 1 = Standard Logging, TODO: (do we need 3 = Lightweight logging too?)
 # Do we need this setting? we are already using above log settings to turn individual elements on/off.
 # Could set this up as a "profile" system to store settings for indidivudal log settings, or just ignore and allow user
-# to edit individual log settings.
+# to edit individual log settings
 
 # variable setup
 app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
