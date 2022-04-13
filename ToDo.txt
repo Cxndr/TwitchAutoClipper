@@ -10,13 +10,21 @@
     - Remove unnecessary variables that dont get used
     - Rethink process and implications after learning what is happening with pokelawls
 
-# TODO: INVESTIGATE POKELAWLS OFFLINE CLIPPING
-    - on 6th April 3am-6am we made a tonne of clips on Pokelawls channel whilst they were offline and chat was barely moving
-    - why was chat reaching the Inc threshold? did this line up with what is in pokelawls chatlog,
-        - if not then why was inc high enough to trigger clips?
-
 # TODO: RENAME main.py TO run.py
     - more intuitive name, describes what it is much better.
     - how to implement this with github?
         - is it as simple as making change locally and git push-ing? or do we need to make changes to the repo?
+        - i think pycharm will manage this for us, but should learn how to accomplish manually.
 
+# TODO: Why does imreallyimports channel spam clips?
+
+
+
+*** DONE *** (clean up when items go into commit)
+
+TO#DO: INVESTIGATE POKELAWLS OFFLINE CLIPPING
+    - on 6th April 3am-6am we made a tonne of clips on Pokelawls channel whilst they were offline and chat was barely moving
+    - why was chat reaching the Inc threshold? did this line up with what is in pokelawls chatlog,
+        - if not then why was inc high enough to trigger clips?
+
+Investigated pokelawls offline clipping. Pokelawls had a relatively active offline chat this night.
