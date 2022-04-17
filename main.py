@@ -18,8 +18,8 @@ chat_count_trap_length = 1000       # how many tmi calls back do we store to cal
 chat_count_trap_time = 20           # how many tmi calls back in time do we calculate increase from.
 chat_increase_list_length = 100     # how many past chat count increases to store for calculating average increase.
 lockout_timer = 20                  # after creating a clip, how long before another clip can be created on that channel. some value above 0 is needed to not create multiple clips from same chat event.
-tick_length = 0.2                   # how long in seconds should we wait between calculation ticks - needs to be above 0 or tmi data packets will be too small to calculate increases.
-min_chat_increase = 12              # the minimum amount of chat messages more than the average we need to trigger a clip. - this is here to account for tracking low view count streams. where an increase of 2 avg messages per tick may jump to 7/8 messages per tick through natural conversation or chatbot messages. this is a large increase compared to the average but not nessecarily a clippable moment.
+total_tick_length = 10              # how long in seconds should we take to perform one chat data pull from each target channel - give a total amount in seconds which is then divided by the amount of online channels (value of 10s with 50 online channels = wait 0.2s between each call). needs to be above 0 or tmi data packets will be too small to calculate increases.
+min_chat_increase = 20              # the minimum amount of chat messages more than the average we need to trigger a clip. - this is here to account for tracking low view count streams. where an increase of 2 avg messages per tick may jump to 7/8 messages per tick through natural conversation or chatbot messages. this is a large increase compared to the average but not nessecarily a clippable moment.
 clip_delay = 5                      # how long in seconds to wait to execute clip from moment of detection. (to allow the clip to include things after the chat spike)
 
 settings_track_offline_channels = True
@@ -268,6 +268,16 @@ def run_clipper():
     # chat count loop
     while True:
 
+        # calculate how many online channels and set tick length
+        online_channel_count = len(target_channels)
+        for i in range(len(target_channels)):
+            if target_channels[i].channel_is_offline():
+                online_channel_count -=1
+
+        print( "total_tick_length: " + str(total_tick_length) + "   online_channel_count: " + str(online_channel_count) )
+        tick_length = total_tick_length / online_channel_count
+        print("    TICK LENGTH: " + str(tick_length) )
+
         for i in range(len(target_channels)):
 
             t = target_channels[i]
@@ -280,14 +290,14 @@ def run_clipper():
 
             try:
 
-                # store current chat count into trap list (position 0)
+                # store current chat count into trap list at position 0
                 t.chat_count_trap.insert(0,t.chat_count)
 
-                # destroy last trap if full
+                # destroy last entry in trap list if full
                 if len(t.chat_count_trap) >= chat_count_trap_length:
                     t.chat_count_trap.pop()
 
-                # set past chat value based on trap_time ???
+                # set past chat value if trap_time has been exceeded
                 if len(t.chat_count_trap) > chat_count_trap_time:
                     t.chat_count_past = t.chat_count_trap[chat_count_trap_time-1]
                 else: t.chat_count_past = 1
@@ -298,7 +308,7 @@ def run_clipper():
                     t.chat_count_increase_frac = t.chat_count_increase / t.chat_count_past
                 else: t.chat_count_increase_frac = 0
 
-                # add count increase to avg list, remove if above max length
+                # add count increase to increase list (used for calculating average), remove if above max length
                 if t.chat_count_increase > 0:
                     t.chat_increase_list.insert(0, t.chat_count_increase)
                 if len(t.chat_increase_list) >= chat_increase_list_length:
