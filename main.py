@@ -18,7 +18,7 @@ chat_count_trap_length = 1000       # how many tmi calls back do we store to cal
 chat_count_trap_time = 20           # how many tmi calls back in time do we calculate increase from.
 chat_increase_list_length = 100     # how many past chat count increases to store for calculating average increase.
 lockout_timer = 20                  # after creating a clip, how long before another clip can be created on that channel. some value above 0 is needed to not create multiple clips from same chat event.
-total_tick_length = 10              # how long in seconds should we take to perform one chat data pull from each target channel - give a total amount in seconds which is then divided by the amount of online channels (value of 10s with 50 online channels = wait 0.2s between each call). needs to be above 0 or tmi data packets will be too small to calculate increases.
+total_tick_length = 5               # how long in seconds should we take to perform one chat data pull from each target channel - give a total amount in seconds which is then divided by the amount of online channels (value of 10s with 50 online channels = wait 0.2s between each call). needs to be above 0 or tmi data packets will be too small to calculate increases.
 min_chat_increase = 20              # the minimum amount of chat messages more than the average we need to trigger a clip. - this is here to account for tracking low view count streams. where an increase of 2 avg messages per tick may jump to 7/8 messages per tick through natural conversation or chatbot messages. this is a large increase compared to the average but not nessecarily a clippable moment.
 clip_delay = 5                      # how long in seconds to wait to execute clip from moment of detection. (to allow the clip to include things after the chat spike)
 
@@ -37,7 +37,7 @@ user_token = "x7jxalqa8wahy06q846xt4b6iwcley"
 users = {} # shared user list minimizes the number of requests
 twitch = Twitch(app_id, app_secret)
 
-# setup TwitchAPI "User" Authentication - we need this for: clip creation.
+# setup TwitchAPI "User" Authentication - we need this authentication level for: clip creation.
 target_scope = [AuthScope.CLIPS_EDIT]
 auth = UserAuthenticator(twitch, target_scope, force_verify=False)
 token, refresh_token = auth.authenticate() # this will open your default browser and prompt you with the twitch verification website
@@ -83,15 +83,14 @@ main_logger = setup_logger('mainlog', 'main.log')
 class Channel:
 
     def __init__(self, _channel_name, _category):
-
         self.channel_name = _channel_name
         self.category = _category
-        self.channel_info = twitch.get_users(logins=[self.channel_name])
-        self.id = self.channel_info['data'][0]['id']
-        # self.broadcast_info = twitch.get_channel_information(broadcaster_id=[self.id])
-        self.stream_info = twitch.get_streams(user_id=[self.id])
-        print(self.stream_info)
+        self.update_stream_info()
+        self.initialize_tracking()
+        self.channel_chat_logger = setup_logger(self.channel_name + '_chatlog', 'channel_logs/' + self.channel_name + '_chat.log')
+        self.previous_offline = False
 
+    def initialize_tracking(self):
         self.chat_count = 1  # we start at 1 to avoid 'divide by zero' problems on chat_count_past
         self.chat_count_past = 1
         self.chat_count_trap = []
@@ -101,7 +100,13 @@ class Channel:
         self.chat_increase_list = []
         self.chat_increase_avg = 0
         self.lockout = 0
-        self.channel_chat_logger = setup_logger(self.channel_name + '_chatlog', 'channel_logs/' + self.channel_name + '_chat.log')
+
+    def update_stream_info(self):
+        self.channel_info = twitch.get_users(logins=[self.channel_name])
+        self.id = self.channel_info['data'][0]['id']
+        self.broadcast_info = twitch.get_channel_information(broadcaster_id=[self.id])
+        self.stream_info = twitch.get_streams(user_id=[self.id])
+        print( "[" + self.channel_name + "] - Updated Stream Info" )
 
     def channel_is_offline(self):
         if not self.stream_info['data']:
@@ -109,6 +114,17 @@ class Channel:
         else:
             return False
 
+    def channel_went_offline(self):
+        t.previous_offline = True
+        t.initialize_tracking()
+        main_logger.info("[" + str(t.channel_name) + "] Channel Went OFFLINE- Initializing Channel Tracking.")
+
+    def channel_went_online(self):
+        t.previous_offline = False
+        t.initialize_tracking()
+        main_logger.info("[" + str(t.channel_name) + "] Channel Went ONLINE- Initializing Channel Tracking.")
+
+    '''
     # chat info callback - get info from stream (same as running GET https://api.twitch.tv/helix/users?login=<login name>&id=<user ID> api call)
     def info_callback(self, data):
         print("\n -- setting channel info for " + self.channel_name + ": ")
@@ -130,6 +146,7 @@ class Channel:
             verbose = True
         )
         target_info.start()
+    '''
 
     # tmi callback - runs everytime messages are sent to the twitch chat
     def tmi_callback(self, data):
@@ -210,7 +227,6 @@ class Channel:
         clips_write.writerow(clip_row)
 
 
-
 # setup channels
 target_channels = []
 
@@ -272,7 +288,7 @@ def run_clipper():
         online_channel_count = len(target_channels)
         for i in range(len(target_channels)):
             if target_channels[i].channel_is_offline():
-                online_channel_count -=1
+                online_channel_count -= 1
 
         print( "total_tick_length: " + str(total_tick_length) + "   online_channel_count: " + str(online_channel_count) )
         tick_length = total_tick_length / online_channel_count
@@ -282,11 +298,17 @@ def run_clipper():
 
             t = target_channels[i]
 
-            # dont process offline channels
+            # dont process offline channels, manage channels coming online or offline.
             if settings_track_offline_channels:
                 if t.channel_is_offline():
-                    print(" [" + t.channel_name + "] - Channel Offline")
+                    print( " [" + t.channel_name + "] - Channel Offline" )
+                    if t.previous_offline == False:
+                        t.channel_went_offline()
                     continue
+                else:
+                    if t.previous_offline == True:
+                        t.channel_went_online()
+
 
             try:
 

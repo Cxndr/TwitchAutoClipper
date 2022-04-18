@@ -1,3 +1,31 @@
+# TODO: Do we need a good way to stop our program?
+    - running in an infinite while True loop seems like bad practice.
+    - should probably be using a start and stop function somehow
+
+# TODO: Why are we still clipping channels when offline? (knut, mizkif) Is ignore offline channels not working here?
+
+# TODO: CAN WE AVOID RAIDS!?
+    - Raids are rarely moments worth clipping and will clog up records with unnecessary clips.
+    - We could detect raids through api?
+    - if not could a much weaker option could be to detect chatbot messages, wouldn't be a great solution though as people
+    use different bots and some may not use any bots at all.
+
+# TODO: CAN WE AVOID CHANNEL INTROS?
+    - everytime gappyv starts stram several "starting soon!" clips get triggered because people spam his chat on stream start.
+    - also a problem with jonzherkas stream, massive intial hit of 9.4 increase.
+    - is this just a problem with channels that have previously been online, gone offline and then come back online
+    while the program was running? - has this already been fixed by initializing channel tracking variables when they
+    go online or offline?
+        - test it out, but this should be fixed by initializing as the trap length gets reset and then needs to be
+        refilled until is reaches chat_count_trap_time which should avoid the big increase upon initially going online.
+
+# TODO: CAN WE AVOID SUBSCRIPTION SPAM FROM BOTS LIKE STREAMELEMENTS?
+    - If someone gift a lot of subs, this isn't generally a very clippable moment but if the streamer is using
+    streamelements or a similar bot to print "xx just subscribed.", this will trigger clips.
+    - What other bots do we need to look for?
+    SOLUTION: New System to exclude specific usernames from chat.
+
+
 # TODO: WHAT DO WE DO IF INTERNET CONNECTION BREAKS?
     - currently we keep recieving data but all streams go to no chat messages which fills up the trap with empty chats.
     when the internet comes back on it will trigger lots of clips because the averages are 0.
