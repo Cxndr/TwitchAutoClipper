@@ -1,10 +1,46 @@
-# TODO: Do we need a good way to stop our program?
+COMMIT:
+
+Changed main.log to event.log, added "channel went offline/online" and tick stats to channel_chat_logs for easier debugging (current, past, increase, avg, diff, lockout, trap length). Added extra error feedback across code.
+
+# TODO IF WE ARE PLANNING TO BE RUN PERMANTENTLY DO WE NEED A DAILY RESET POINT?
+    - resets chat count values back to 0, is this nessecary? are big numbers a problem? - research.
+
+# TODO: TRACKER IS RE-INITIALIZING EVERY LOOP, DO WE ONLY WANT TO REASSESS TICK LENGTH WHEN STARTING PROGRAM OR WHEN NEW CHANNEL COMES ONLINE?
+
+# TODO: CHANNELS ARE RECORDING LOG WHEN THEY GO OFFLINE BUT NOT WHEN THEY COME ONLINE.
+
+# TODO: SET MINIMUM AND MAXIMUM TICK LENGTH IN CASE OF A PROGRAM ERROR.
+    - if code causes extremely low tick rate the program could run too fast and cause issues with api calls or hardware overload.
+
+# TODO: REFACTOR ALL LOGGERS INTO ONE WRITE_LOG FUNCTION THAT ACCEPTS A STRING TO LOG AND ANY NUMBER OF LOG TYPES.
+    eg. write_log("example", main, event, channel, console)
+
+# TODO: IMPLEMENT OPTIONAL CUSTOM CLIP TRIGGER VALUES FOR TARGET_CHANNELS.TXT
+    - allows us to dial in precise rates for individual streams
+    - it seems as though individual channels have very different chat speeds for both normal activity and clippable activity
+    ie: channel "atmosphere" or "culture" being different on different channels means what is "clippable" will happen at
+    different ratios for different channels.
+    - could we just impplement this automatically? it seems like very large channels have a smaller spike for good clip (1.5)
+    especially for big channels that have just come online. Then medium channels (300-5000) needs a harsher rate (2.0),
+    and very small channels (<300) may only get a 1.3 or 1.4 increase with even the best clips.
+
+# TODO: CAN WE RECORD THE TICK DATA (INCREASE, AVG, ETC.) INTO THE INDIVIDUAL CHANNEL CHAT LOGS?
+    - would help with debugging a lot.
+
+# TODO: DO WE NEED A GOOD WAY TO STOP OUR PROGRAM?
     - running in an infinite while True loop seems like bad practice.
     - should probably be using a start and stop function somehow
 
-# TODO: Why are we still clipping channels when offline? (knut, mizkif) Is ignore offline channels not working here?
+# TODO: WHY ARE WE STILL CLIPPING CHANNELS WHEN OFFLINE? (KNUT, MIZKIF) IS IGNORE OFFLINE CHANNELS NOT WORKING HERE?
 
-# TODO: CAN WE AVOID RAIDS!?
+# TODO: CAN WE AVOID CHAT VOTING (1's for this, 2's for that).
+    - could be as simple as ignoring messages that contain only "1" or "2"
+    - make sure to account for "11111111" and "222222" as well.
+    - are there any other way's people commonly conduct votes in chat?
+    - ALSO ! commands (anything with ! at start) as sometimes people will spam these for channel interactions.
+    Recent hearthstone expansion launch where streamers had an onscreen gaphic if enough people spammed !sunkencity
+
+# TODO: CAN WE AVOID RAIDS?
     - Raids are rarely moments worth clipping and will clog up records with unnecessary clips.
     - We could detect raids through api?
     - if not could a much weaker option could be to detect chatbot messages, wouldn't be a great solution though as people
@@ -24,7 +60,6 @@
     streamelements or a similar bot to print "xx just subscribed.", this will trigger clips.
     - What other bots do we need to look for?
     SOLUTION: New System to exclude specific usernames from chat.
-
 
 # TODO: WHAT DO WE DO IF INTERNET CONNECTION BREAKS?
     - currently we keep recieving data but all streams go to no chat messages which fills up the trap with empty chats.
@@ -49,9 +84,11 @@
         - is it as simple as making change locally and git push-ing? or do we need to make changes to the repo?
         - i think pycharm will manage this for us, but should learn how to accomplish manually.
 
-# TODO: Why does imreallyimportant channel spam random clips even with very low chat activity?
+# TODO: WHY DOES IMREALLYIMPORTANT CHANNEL SPAM RANDOM CLIPS EVEN WITH VERY LOW CHAT ACTIVITY?
     - problem seems to be worse the more channels we are tracking - because it extends the tick length?
     - Next see if it gets better at faster tick rate? or worse at very slow tick rate.
+    - I think this is to do with a very low tick rate. Now that we have tick tracking stats logged in the chat logs we
+    can take at look at the logs at the time of the clips to see exactly what is happening.
 
 
 
@@ -65,14 +102,11 @@
 
 Investigated pokelawls offline clipping. Pokelawls had a relatively active offline chat this night.
 
-***
 
 # TO#DO: MAKE LOGS REVERSED ORDER.
     - so the most recent log goes to the top of the file.
     - when writing the log, write it to line 1.
 
-It's very inneficient to write to the start of the file for every log. Computationally we'd have to navigate to start of file every time.
+It's very inneficient to write to the start of the file for every log. Computationally we'd have to navigate to start of file every time we log.
 OS's are designed to make appends (to end of file) very fast and efficient. With the amount of logging we are doing this would be a bad idea.
 Better to just reverse the order when opening the file and make sure we aren't making huge file logs.
-
-***

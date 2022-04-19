@@ -66,20 +66,23 @@ if not os.path.getsize('clips.csv'):
 
 # setup loggers - channel specific loggers setup inside channel class.
 formatter = logging.Formatter('%(asctime)s - %(message)s')
-def setup_logger(name, log_file, level=logging.INFO):
+def setup_logger(name, log_file, level=logging.INFO, console=False):
     """To setup as many loggers as you want"""
-    handler = logging.FileHandler(log_file, encoding='utf-8')
-    handler.setFormatter(formatter)
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setFormatter(formatter)
+    console_handler = logging.StreamHandler()
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    logger.addHandler(handler)
+    logger.addHandler(file_handler)
+    if console == True:
+        logger.addHandler(console_handler)
     return logger
+
 chat_logger = setup_logger('chatlog', 'chat.log')
 clip_logger = setup_logger('clipslog', 'clips.log')
-main_logger = setup_logger('mainlog', 'main.log')
+event_logger = setup_logger('eventslog', 'events.log',console=True)
 
-### NEW IDEA - Setup channels as classes with each channel being an individual object, then just list objects and run them through the list.
-# we can store channel name, id, clips, stats even inside objects and use commands based system - "add channel x" "open clips channel x" "start clipper" to do whatever we want.
+
 class Channel:
 
     def __init__(self, _channel_name, _category):
@@ -100,13 +103,14 @@ class Channel:
         self.chat_increase_list = []
         self.chat_increase_avg = 0
         self.lockout = 0
+        event_logger.info("[" + self.channel_name + "] - Channel Tracking Initialized")
 
     def update_stream_info(self):
         self.channel_info = twitch.get_users(logins=[self.channel_name])
         self.id = self.channel_info['data'][0]['id']
         self.broadcast_info = twitch.get_channel_information(broadcaster_id=[self.id])
         self.stream_info = twitch.get_streams(user_id=[self.id])
-        print( "[" + self.channel_name + "] - Updated Stream Info" )
+        event_logger.info("[" + self.channel_name + "] - Updated Stream Info")
 
     def channel_is_offline(self):
         if not self.stream_info['data']:
@@ -115,14 +119,16 @@ class Channel:
             return False
 
     def channel_went_offline(self):
-        t.previous_offline = True
-        t.initialize_tracking()
-        main_logger.info("[" + str(t.channel_name) + "] Channel Went OFFLINE- Initializing Channel Tracking.")
+        self.previous_offline = True
+        self.initialize_tracking()
+        event_logger.info("[" + str(self.channel_name) + "] Channel Went OFFLINE- Initializing Channel Tracking.")
+        self.channel_chat_logger.info(" [ CHANNEL WENT OFFLINE ]")
 
     def channel_went_online(self):
-        t.previous_offline = False
-        t.initialize_tracking()
-        main_logger.info("[" + str(t.channel_name) + "] Channel Went ONLINE- Initializing Channel Tracking.")
+        self.previous_offline = False
+        self.initialize_tracking()
+        event_logger.info("[" + str(self.channel_name) + "] Channel Came ONLINE- Initializing Channel Tracking.")
+        self.channel_chat_logger.info(" [ CHANNEL CAME ONLINE ]")
 
     '''
     # chat info callback - get info from stream (same as running GET https://api.twitch.tv/helix/users?login=<login name>&id=<user ID> api call)
@@ -157,7 +163,6 @@ class Channel:
             chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'] )
         if settings_log_chat_channels:
             self.channel_chat_logger.info( "chat_count:" + str(self.chat_count) + " [" + self.channel_name + "] [" + data['display_name'] + "] " + data['message'])
-
 
     # setup tmi (twitch messaging interface) - returns chat messages with their data via callback above.
     def setup_tmi(self):
@@ -204,6 +209,10 @@ class Channel:
             if 'error' in clip.keys():
                 raise TwitchAPIException(clip)
         except TwitchAPIException as error:
+            # if we get a category clipping error include category in the error log
+            if 'Clipping is restricted for this category on this channel.' in clip.keys():
+                self.update_stream_info()
+                error = "[Category: " + self.stream_info['data'][0]['game_name'] + "]" + error
             clip_logger.info( self.channel_name + " | [CLIP CREATE FAILED]: " + str(error) + clip_trigger_info )
             print( "Error: " + str(error) )
             return
@@ -212,7 +221,7 @@ class Channel:
             print(clip['data'][0]['edit_url'])
 
         # write to log
-        clip_logger.info( self.channel_name + " | " + clip["data"][0]["edit_url"] + clip_trigger_info )
+        clip_logger.info( self.channel_name + " | " + clip['data'][0]['edit_url'] + clip_trigger_info )
 
         # write to csv
         clip_row = [
@@ -250,13 +259,12 @@ def load_channels():
             if line and not line.startswith("#"): # use "#" for commenting out
                 channel_name = line
                 channel_info = twitch.get_users(logins=[channel_name])
-                print(channel_info)
+                print( "[" + str(channel_name) + "] Channel Data Recieved: " + str(channel_info) )
                 if channel_info['data']: # check if channel returns a data array for channel info
                     target_channels.append(Channel(channel_name, category))
                 else:
                     channel_error = "Error adding channel [" + channel_name + "], no channel id data recieved, is the channel banned or the name typed incorrectly?"
-                    print(channel_error)
-                    main_logger.info(channel_error)
+                    event_logger.info(channel_error)
 
 def add_channel(*args):
     for c in range(len(args)):
@@ -284,15 +292,17 @@ def run_clipper():
     # chat count loop
     while True:
 
+        event_logger.info("CALCULATING TICK LENGTH")
+
         # calculate how many online channels and set tick length
         online_channel_count = len(target_channels)
         for i in range(len(target_channels)):
             if target_channels[i].channel_is_offline():
                 online_channel_count -= 1
 
-        print( "total_tick_length: " + str(total_tick_length) + "   online_channel_count: " + str(online_channel_count) )
-        tick_length = total_tick_length / online_channel_count
-        print("    TICK LENGTH: " + str(tick_length) )
+        event_logger.info("total_tick_length: " + str(total_tick_length) + "   online_channel_count: " + str(online_channel_count))
+        tick_length = round(total_tick_length / online_channel_count, 2)
+        event_logger.info( "    TICK LENGTH: " + str(tick_length) )
 
         for i in range(len(target_channels)):
 
@@ -342,15 +352,17 @@ def run_clipper():
                 if t.chat_count_increase > 0 and t.chat_increase_avg > 0: # to avoid divide by zero error
                     t.chat_count_difference = round(t.chat_count_increase / t.chat_increase_avg, 2)
                 else: t.chat_count_difference = 0
-                print( "\n channel:" + t.channel_name
-                       + " current:" + str(t.chat_count)
-                       + " past:" + str(t.chat_count_past)
-                       + " increase:" + str(t.chat_count_increase)
-                       + " inc_frac:" + str(round(t.chat_count_increase_frac,2))
-                       + " avg_inc:" + str(round(t.chat_increase_avg,2))
-                       + " diff:" + str(t.chat_count_difference)
-                       + " lockout:" + str(t.lockout)
-                       + " trap_len:" + str(len(t.chat_count_trap)) + "\n" )
+                tick_data = "  [" + t.channel_name + "]" \
+                       + " current:" + str(t.chat_count) \
+                       + " past:" + str(t.chat_count_past) \
+                       + " increase:" + str(t.chat_count_increase) \
+                       + " inc_frac:" + str(round(t.chat_count_increase_frac,2)) \
+                       + " avg_inc:" + str(round(t.chat_increase_avg,2)) \
+                       + " diff:" + str(t.chat_count_difference) \
+                       + " lockout:" + str(t.lockout) \
+                       + " trap_len:" + str(len(t.chat_count_trap))
+                t.channel_chat_logger.info(tick_data)
+                print("\n " + tick_data + "\n")
 
                 # if increase is x bigger than avg increase then trigger clip
                 if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) \
