@@ -209,7 +209,7 @@ class Channel:
             if 'error' in clip.keys():
                 raise TwitchAPIException(clip)
         except TwitchAPIException as error:
-            # if we get a category clipping error include category in the error log
+            # if we get a category specific clipping error, include the category in the error log
             if 'Clipping is restricted for this category on this channel.' in clip.keys():
                 self.update_stream_info()
                 error = "[Category: " + self.stream_info['data'][0]['game_name'] + "]" + error
@@ -314,10 +314,12 @@ def run_clipper():
                     print( " [" + t.channel_name + "] - Channel Offline" )
                     if t.previous_offline == False:
                         t.channel_went_offline()
+                    t.previous_offline = True
                     continue
                 else:
                     if t.previous_offline == True:
                         t.channel_went_online()
+                    t.previous_offline = False
 
 
             try:

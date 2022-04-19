@@ -1,13 +1,14 @@
 COMMIT:
 
-Changed main.log to event.log, added "channel went offline/online" and tick stats to channel_chat_logs for easier debugging (current, past, increase, avg, diff, lockout, trap length). Added extra error feedback across code.
+Fixed previous_offline system - previous behaviour was that channels defaulted to False causing channels that were
+offline when the tracker started, to not update the first time they come online. new behaviour is when we check if
+channel is offline at the start of the tick loop we set previous_offline correctly at the end of the check.
+
 
 # TODO IF WE ARE PLANNING TO BE RUN PERMANTENTLY DO WE NEED A DAILY RESET POINT?
     - resets chat count values back to 0, is this nessecary? are big numbers a problem? - research.
 
 # TODO: TRACKER IS RE-INITIALIZING EVERY LOOP, DO WE ONLY WANT TO REASSESS TICK LENGTH WHEN STARTING PROGRAM OR WHEN NEW CHANNEL COMES ONLINE?
-
-# TODO: CHANNELS ARE RECORDING LOG WHEN THEY GO OFFLINE BUT NOT WHEN THEY COME ONLINE.
 
 # TODO: SET MINIMUM AND MAXIMUM TICK LENGTH IN CASE OF A PROGRAM ERROR.
     - if code causes extremely low tick rate the program could run too fast and cause issues with api calls or hardware overload.
@@ -94,6 +95,14 @@ Changed main.log to event.log, added "channel went offline/online" and tick stat
 
 
 *** DONE *** (clean up when items go into commit)
+
+
+
+
+# TO#DO: CHANNELS ARE RECORDING LOG WHEN THEY GO OFFLINE BUT NOT WHEN THEY COME ONLINE.
+
+Fixed. See April 20th 2022 Commit.
+
 
 # TO#DO: INVESTIGATE POKELAWLS OFFLINE CLIPPING
     - on 6th April 3am-6am we made a tonne of clips on Pokelawls channel whilst they were offline and chat was barely moving
