@@ -1,17 +1,17 @@
 COMMIT:
 
-Fixed previous_offline system - previous behaviour was that channels defaulted to False causing channels that were
-offline when the tracker started, to not update the first time they come online. new behaviour is when we check if
-channel is offline at the start of the tick loop we set previous_offline correctly at the end of the check.
+channel_is_offline wasn't updating stream info before checking online status, added update to the function. Also renamed main.py to run.py
 
-
-# TODO IF WE ARE PLANNING TO BE RUN PERMANTENTLY DO WE NEED A DAILY RESET POINT?
-    - resets chat count values back to 0, is this nessecary? are big numbers a problem? - research.
+# TODO: RENAME main.py TO run.py
+    - more intuitive name, describes what it is much better.
+    - how to implement this with github?
+        - is it as simple as making change locally and git push-ing? or do we need to make changes to the repo?
+        - i think pycharm will manage this for us, but should learn how to accomplish manually.
 
 # TODO: TRACKER IS RE-INITIALIZING EVERY LOOP, DO WE ONLY WANT TO REASSESS TICK LENGTH WHEN STARTING PROGRAM OR WHEN NEW CHANNEL COMES ONLINE?
 
 # TODO: SET MINIMUM AND MAXIMUM TICK LENGTH IN CASE OF A PROGRAM ERROR.
-    - if code causes extremely low tick rate the program could run too fast and cause issues with api calls or hardware overload.
+    - if code accidentally causes extremely low tick rate could the program run too fast and cause issues with api calls or hardware overload? - research
 
 # TODO: REFACTOR ALL LOGGERS INTO ONE WRITE_LOG FUNCTION THAT ACCEPTS A STRING TO LOG AND ANY NUMBER OF LOG TYPES.
     eg. write_log("example", main, event, channel, console)
@@ -25,8 +25,8 @@ channel is offline at the start of the tick loop we set previous_offline correct
     especially for big channels that have just come online. Then medium channels (300-5000) needs a harsher rate (2.0),
     and very small channels (<300) may only get a 1.3 or 1.4 increase with even the best clips.
 
-# TODO: CAN WE RECORD THE TICK DATA (INCREASE, AVG, ETC.) INTO THE INDIVIDUAL CHANNEL CHAT LOGS?
-    - would help with debugging a lot.
+# TODO IF WE ARE PLANNING TO BE RUN PERMANTENTLY DO WE NEED A DAILY RESET POINT?
+    - resets chat count values back to 0, is this nessecary? are big numbers a problem? - research.
 
 # TODO: DO WE NEED A GOOD WAY TO STOP OUR PROGRAM?
     - running in an infinite while True loop seems like bad practice.
@@ -60,7 +60,9 @@ channel is offline at the start of the tick loop we set previous_offline correct
     - If someone gift a lot of subs, this isn't generally a very clippable moment but if the streamer is using
     streamelements or a similar bot to print "xx just subscribed.", this will trigger clips.
     - What other bots do we need to look for?
-    SOLUTION: New System to exclude specific usernames from chat.
+    SOLUTION: New System to exclude specific usernames from chat. Probably based on an ignored_users.txt
+        - Could set this to be channel specific? (ie, ignore a user only on specific channels)
+        Not a common use case but could be useful.
 
 # TODO: WHAT DO WE DO IF INTERNET CONNECTION BREAKS?
     - currently we keep recieving data but all streams go to no chat messages which fills up the trap with empty chats.
@@ -75,28 +77,25 @@ channel is offline at the start of the tick loop we set previous_offline correct
         - Can we auto delete log lines after a certain length of time or file size?
             - control this from settings or a debug mode?
 
-# TODO: CLEAN UP CLIPPING CRITERIA PROCESS.
-    - Remove unnecessary variables that dont get used
-    - Rethink process and implications after learning what is happening with pokelawls
-
-# TODO: RENAME main.py TO run.py
-    - more intuitive name, describes what it is much better.
-    - how to implement this with github?
-        - is it as simple as making change locally and git push-ing? or do we need to make changes to the repo?
-        - i think pycharm will manage this for us, but should learn how to accomplish manually.
-
-# TODO: WHY DOES IMREALLYIMPORTANT CHANNEL SPAM RANDOM CLIPS EVEN WITH VERY LOW CHAT ACTIVITY?
-    - problem seems to be worse the more channels we are tracking - because it extends the tick length?
-    - Next see if it gets better at faster tick rate? or worse at very slow tick rate.
-    - I think this is to do with a very low tick rate. Now that we have tick tracking stats logged in the chat logs we
-    can take at look at the logs at the time of the clips to see exactly what is happening.
-
-
 
 
 *** DONE *** (clean up when items go into commit)
 
 
+
+# TO#DO: WHY DOES IMREALLYIMPORTANT CHANNEL SPAM RANDOM CLIPS EVEN WITH VERY LOW CHAT ACTIVITY?
+    - problem seems to be worse the more channels we are tracking - because it extends the tick length?
+    - Next see if it gets better at faster tick rate? or worse at very slow tick rate.
+    - I think this is to do with a very low tick rate. Now that we have tick tracking stats logged in the chat logs we
+    can take at look at the logs at the time of the clips to see exactly what is happening.
+
+This is fixed by implementing dynamic tick rate.
+
+
+# TO#DO: CAN WE RECORD THE TICK DATA (INCREASE, AVG, ETC.) INTO THE INDIVIDUAL CHANNEL CHAT LOGS?
+    - would help with debugging a lot.
+
+Done
 
 
 # TO#DO: CHANNELS ARE RECORDING LOG WHEN THEY GO OFFLINE BUT NOT WHEN THEY COME ONLINE.

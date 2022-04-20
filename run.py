@@ -113,7 +113,7 @@ class Channel:
         event_logger.info("[" + self.channel_name + "] - Updated Stream Info")
 
     def channel_is_offline(self):
-        update_stream_info()
+        self.update_stream_info()
         if not self.stream_info['data']:
             return True
         else:
