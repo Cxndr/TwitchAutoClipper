@@ -13,7 +13,7 @@ from datetime import datetime
 import os.path
 
 # settings
-clip_threshold = 1.9                # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
+clip_threshold = 2.2                # percent of avg chat activity needed to trigger clip, 1.0 is 100% (exactly the average).
 chat_count_trap_length = 1000       # how many tmi calls back do we store to calculate the average chat speed. default 1000, using lower for fast testing
 chat_count_trap_time = 20           # how many tmi calls back in time do we calculate increase from.
 chat_increase_list_length = 100     # how many past chat count increases to store for calculating average increase.
@@ -113,6 +113,7 @@ class Channel:
         event_logger.info("[" + self.channel_name + "] - Updated Stream Info")
 
     def channel_is_offline(self):
+        update_stream_info()
         if not self.stream_info['data']:
             return True
         else:
