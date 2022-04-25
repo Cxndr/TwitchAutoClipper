@@ -237,10 +237,9 @@ class Channel:
         ]
         clips_write.writerow(clip_row)
 
-
-
 def load_channels():
 
+    global target_channels
     target_channels = [] # re-initialize
     category = "DEFAULT"
 
@@ -279,10 +278,8 @@ def add_channel(*args):
                 file_object.write("\n")
             file_object.write(args[c])
 
-
 # run program
 def run_clipper():
-
 
     load_channels()
     print(target_channels)

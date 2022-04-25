@@ -1,9 +1,6 @@
 COMMIT:
 
-
-
 # TODO: MAKE LOGGER MODES - "Funny" to track laughing emotes (OMEGALUL, LUL, KEKW, etc.)
-
 
 # TODO: RENAME main.py TO run.py
     - more intuitive name, describes what it is much better.
