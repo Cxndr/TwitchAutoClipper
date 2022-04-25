@@ -35,6 +35,7 @@ app_id = "f81skqyv28rzas6nqj3nvzaq9x3tqs"
 app_secret = "w3rnpwvpbiiw9lb1co497mm6goqla8"
 user_token = "x7jxalqa8wahy06q846xt4b6iwcley"
 users = {} # shared user list minimizes the number of requests
+target_channels = [] # this gets set in load_channels() - is only here in case we use before that happens. could be removed later.
 twitch = Twitch(app_id, app_secret)
 
 # setup TwitchAPI "User" Authentication - we need this authentication level for: clip creation.
@@ -237,11 +238,10 @@ class Channel:
         clips_write.writerow(clip_row)
 
 
-# setup channels
-target_channels = []
 
 def load_channels():
 
+    target_channels = [] # re-initialize
     category = "DEFAULT"
 
     with open('target_channels.txt', 'r') as file_object:
@@ -253,15 +253,15 @@ def load_channels():
             # store category else store channel name
             if line.startswith("//"):
                 category = line[2:]
-                print(" CATEGORY CHANGE: " + category)
+                print("\n CATEGORY CHANGE: " + category)
                 continue
 
             # create channel object
-            if line and not line.startswith("#"): # use "#" for commenting out
+            if line and not line.startswith("#"): # use "#" for commenting out in text file
                 channel_name = line
                 channel_info = twitch.get_users(logins=[channel_name])
                 print( "[" + str(channel_name) + "] Channel Data Recieved: " + str(channel_info) )
-                if channel_info['data']: # check if channel returns a data array for channel info
+                if channel_info['data']:
                     target_channels.append(Channel(channel_name, category))
                 else:
                     channel_error = "Error adding channel [" + channel_name + "], no channel id data recieved, is the channel banned or the name typed incorrectly?"
@@ -279,11 +279,13 @@ def add_channel(*args):
                 file_object.write("\n")
             file_object.write(args[c])
 
-load_channels()
-print(target_channels)
 
 # run program
 def run_clipper():
+
+
+    load_channels()
+    print(target_channels)
 
     # setup tmi for chat loops
     for i in range(len(target_channels)):
@@ -300,7 +302,6 @@ def run_clipper():
         for i in range(len(target_channels)):
             if target_channels[i].channel_is_offline():
                 online_channel_count -= 1
-
         event_logger.info("total_tick_length: " + str(total_tick_length) + "   online_channel_count: " + str(online_channel_count))
         tick_length = round(total_tick_length / online_channel_count, 2)
         event_logger.info( "    TICK LENGTH: " + str(tick_length) )
