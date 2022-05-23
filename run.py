@@ -367,7 +367,7 @@ def run_clipper():
 
                 # if increase is x bigger than avg increase then trigger clip
                 if t.chat_count_increase > (clip_threshold * t.chat_increase_avg) \
-                and t.chat_count_increase >= min_chat_increase \
+                and t.chat_count_increase > min_chat_increase \
                 and len(t.chat_count_trap) > (chat_count_trap_length*0.1) \
                 and t.lockout == 0:
                     t.lockout = lockout_timer
